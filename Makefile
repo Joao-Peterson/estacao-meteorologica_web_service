@@ -10,11 +10,9 @@ CC := gcc
 C_FLAGS :=
 
 I_FLAGS :=
-I_FLAGS += -IC:/msys64/usr/include
 I_FLAGS += -I./inc
 
 L_FLAGS :=
-L_FLAGS += -LC:/msys64/usr/local/curl-7.75.0-win64-mingw/lib
 L_FLAGS += -L./lib
 # L_FLAGS += -static
 L_FLAGS += -lcurl
