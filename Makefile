@@ -14,14 +14,19 @@ I_FLAGS += -I./inc
 
 L_FLAGS :=
 L_FLAGS += -L./lib
-# L_FLAGS += -static
-L_FLAGS += -lcurl
+L_FLAGS += ./lib/libcurl.dll.a
 L_FLAGS += ./lib/libdoc.a
-# L_FLAGS += -lbrotlidec-static 
+L_FLAGS += ./lib/libmysql.lib
+# L_FLAGS += ./lib/mysqlclient.lib
 
 SOURCES := main.c
 MAIN_APP := main.exe
 BUILD_DIR := build/
+
+RES_CC := windres
+RES_C_FLAGS := -O coff
+RES_SCRIPT := res/resources.rc
+RES_OUT = res/resources.res
 
 # ---------------------------------------------------------------
 
@@ -39,11 +44,14 @@ build : $(MAIN_APP)
 release : C_FLAGS += -Ofast
 release : $(MAIN_APP)
 
-$(MAIN_APP) : $(OBJS)
-	$(CC) $(OBJS_BUILD) $(L_FLAGS) -o $@
+$(MAIN_APP) : $(OBJS) $(RES_OUT)
+	$(CC) $(OBJS_BUILD) $(RES_OUT) $(L_FLAGS) -o $@
 
 %.o : %.c
 	$(CC) $(C_FLAGS) $(I_FLAGS) -c $< -o $(addprefix $(BUILD_DIR), $(notdir $@))
+
+$(RES_OUT) : $(RES_SCRIPT)
+	$(RES_CC) $^ $(RES_C_FLAGS) -o $@ 
 
 clear : 
 	@rm $(MAIN_APP)

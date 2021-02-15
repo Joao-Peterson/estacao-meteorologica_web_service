@@ -1,0 +1,16 @@
+// https://docs.microsoft.com/en-us/windows/win32/menurc/about-resource-files
+// https://docs.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements
+// https://docs.microsoft.com/en-us/windows/win32/menurc/rcdata-resource
+
+
+select_query RCDATA "../sql/select_query.sql"
+
+
+// text:
+// select_query RCDATA "../sql/select_query.sql"
+
+// icon:
+// myicon ICON "icon.ico"
+
+// sound:
+// coin0   WAVE "../sounds/coin0.wav"
