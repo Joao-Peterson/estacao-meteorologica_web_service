@@ -1,3 +1,6 @@
+#ifndef _WIN_RES_HEADER_
+#define _WIN_RES_HEADER_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <Windows.h>
@@ -41,3 +44,5 @@ char* get_win_resource_binary_data(char* token){
 
     return return_string;
 }
+
+#endif
