@@ -3,8 +3,9 @@
 // https://docs.microsoft.com/en-us/windows/win32/menurc/rcdata-resource
 
 
-select_query RCDATA "../sql/select_query.sql"
-insert_query RCDATA "../sql/insert_query_c.sql"
+select_query    RCDATA "../sql/select_query.sql"
+insert_query    RCDATA "../sql/insert_query_c.sql"
+index_html      RCDATA "../html/index.html"
 
 
 // text:

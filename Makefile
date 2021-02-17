@@ -15,15 +15,16 @@ I_FLAGS += -I./inc
 L_FLAGS :=
 L_FLAGS += -L./lib
 L_FLAGS += ./lib/libdoc.a
+L_FLAGS += ./lib/libmicrohttpd.dll.a
 L_FLAGS += ./lib/libcurl.dll.a
 L_FLAGS += ./lib/libmysql.lib
-# L_FLAGS += ./lib/mysqlclient.lib
 
 SOURCES := main.c
 MAIN_APP := main.exe
 BUILD_DIR := build/
 RES_DIR := res/
 
+HTML_DIR := html/
 SQL_DIR := sql/
 
 RES_CC := windres
@@ -35,7 +36,9 @@ RES_OUT = $(RES_DIR)resources.res
 
 OBJS := $(SOURCES:.c=.o)
 
-RES_FILES := $(wildcard $(SQL_DIR)*.sql)
+RES_FILES :=
+RES_FILES += $(wildcard $(SQL_DIR)*.sql)
+RES_FILES += $(wildcard $(HTML_DIR)*.html)
 
 OBJS_BUILD := $(addprefix $(BUILD_DIR), $(notdir $(SOURCES:.c=.o)))
 

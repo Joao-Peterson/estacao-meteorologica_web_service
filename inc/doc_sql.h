@@ -77,7 +77,7 @@ doc_type_t type_mysql_to_doc_type(enum_field_types mysql_type){
 /**
  * @brief insert data from 'doc' into 'mysql'
  */
-void doc_sql_insert(MYSQL *mysql_db, doc *data){
+void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     int mysql_ret_code = 0; 
 
     char *insert_query = get_win_resource_binary_data("insert_query");
@@ -92,7 +92,7 @@ void doc_sql_insert(MYSQL *mysql_db, doc *data){
     double humidity         = doc_get_value(humidity_ptr, double);                     
     double incidency_sun    = doc_get_value(incidency_sun_ptr, double);                          
     double precipitation    = doc_get_value(precipitation_ptr, double);                          
-    double heat_index_value = heat_index(temp, humidity/100.0);     
+    double heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
     double dew_point_value  = dew_point (temp, humidity/100.0);     
 
     snprintf(query_buffer, 1000, insert_query, 

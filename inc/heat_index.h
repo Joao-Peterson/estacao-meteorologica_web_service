@@ -11,18 +11,18 @@ const double c7_hi = 1.22874E-3;
 const double c8_hi = 8.5282E-4;
 const double c9_hi = -1.99E-6;
 
-double heat_index(double temperature, double humidity_decimal){
+double heat_index(double temperature_fah, double humidity_per){
     return (
         (5.0/9.0)*(
             c1_hi + 
-            c2_hi * temperature +
-            c3_hi * humidity_decimal +
-            c4_hi * temperature * humidity_decimal +
-            c5_hi * temperature * temperature +
-            c6_hi * humidity_decimal * humidity_decimal +
-            c7_hi * temperature * temperature * humidity_decimal +
-            c8_hi * humidity_decimal * humidity_decimal * temperature +
-            c9_hi * humidity_decimal * humidity_decimal * temperature * temperature -
+            c2_hi * temperature_fah +
+            c3_hi * humidity_per +
+            c4_hi * temperature_fah * humidity_per +
+            c5_hi * temperature_fah * temperature_fah +
+            c6_hi * humidity_per * humidity_per +
+            c7_hi * temperature_fah * temperature_fah * humidity_per +
+            c8_hi * humidity_per * humidity_per * temperature_fah +
+            c9_hi * humidity_per * humidity_per * temperature_fah * temperature_fah -
             32
         )
     );
