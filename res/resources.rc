@@ -5,7 +5,6 @@
 
 select_query    RCDATA "../sql/select_query.sql"
 insert_query    RCDATA "../sql/insert_query_c.sql"
-index_html      RCDATA "../html/index.html"
 
 
 // text:

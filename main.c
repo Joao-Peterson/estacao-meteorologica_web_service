@@ -13,6 +13,7 @@
 // #include <sys/types.h>
 // #include <ws2tcpip.h>
 #include "microhttpd.h"
+#include "http_server_utils.h"
 
 /**
  * JSONTEST:
@@ -38,68 +39,35 @@ size_t curl_write_memory_callback(void *data, size_t element_size, size_t elemen
 
 /* ----------------------------------------- Main --------------------------------------------- */
 
-static enum MHD_Result ahc_echo(void * cls, struct MHD_Connection * connection, const char * url, 
-    const char * method, const char * version, const char * upload_data, size_t * upload_data_size, void ** ptr){
-
-    static int dummy;
-
-    const char *index_html = cls;
-
-    if (strcmp(method, "GET"))
-        return MHD_NO;                                                              // unexpected method
-    
-    if (&dummy != *ptr){                                                            // The first time only the headers are valid, 
-        *ptr = &dummy;                                                              // do not respond in the first round...
-        return MHD_YES;
-    }
-
-    if (*upload_data_size != 0)                                                     // upload data in a GET!?
-        return MHD_NO; 
-
-    *ptr = NULL;                                                                    // clear context pointer
-
-    printf("Responding HTML.\n");
-
-    struct MHD_Response *response = MHD_create_response_from_buffer(strlen(index_html), (void *)index_html, MHD_RESPMEM_MUST_COPY);
-
-    int ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-
-    MHD_destroy_response(response);
-
-    return ret;
-}
-
 int main(int argc, char **argv){
 
     // ------------------------- Micro Http --------------------
 
     struct MHD_Daemon *server_http;
 
-    void **data_to_server_callback;
-
-    char *index_html = get_win_resource_binary_data("index_html");
-
-    *data_to_server_callback = index_html;
+    // char *filename = "./html/main.html";
 
     server_http = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
         5505,
+        on_client_connect,
         NULL,
+        on_response,
         NULL,
-        ahc_echo,
-        *data_to_server_callback,
+        MHD_OPTION_URI_LOG_CALLBACK,
+        on_uri_parsing,
+        NULL,
         MHD_OPTION_END
     );
 
     if(server_http == NULL){
-        free(index_html);
+        printf("HTTP server daemon initialization failed.\n");
         return -1;
     }
     else{
+        printf("HTTP server daemon initialization succeded.\n");
         (void)getc(stdin);
     }
-
-    free(index_html);
 
 
     // ------------------------- Mysql -------------------------

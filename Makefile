@@ -18,6 +18,7 @@ L_FLAGS += ./lib/libdoc.a
 L_FLAGS += ./lib/libmicrohttpd.dll.a
 L_FLAGS += ./lib/libcurl.dll.a
 L_FLAGS += ./lib/libmysql.lib
+L_FLAGS += -lws2_32
 
 SOURCES := main.c
 MAIN_APP := main.exe
