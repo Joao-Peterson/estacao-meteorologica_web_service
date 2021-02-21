@@ -14,6 +14,8 @@
 // #include <ws2tcpip.h>
 #include "microhttpd.h"
 #include "http_server_utils.h"
+#include "router_uri.h"
+#include "routes/root.router.h"
 
 /**
  * JSONTEST:
@@ -45,15 +47,16 @@ int main(int argc, char **argv){
 
     struct MHD_Daemon *server_http;
 
-    // char *filename = "./html/main.html";
-
+    router_root_init();
+    router_default_init();
+    
     server_http = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
         5505,
         on_client_connect,
         NULL,
         on_response,
-        NULL,
+        (void *)router_root,
         MHD_OPTION_URI_LOG_CALLBACK,
         on_uri_parsing,
         NULL,

@@ -1,1 +1,3 @@
-GET http://localhost:5505/html/index.html?date=jan&time=noon&sort=desc&value=25.3
+GET http://localhost:5505/index.html
+
+# GET http://localhost:5505/index.html?date=jan&time=noon&sort=desc&value=25.3&algumacoisa=5
