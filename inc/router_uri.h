@@ -154,8 +154,7 @@ http_options_t *http_parse_uri_options(const char *uri){
 
 
     name = strpbrk(uri_copy, "?");
-    if(name == NULL)
-        return NULL;
+    if(name == NULL) { free(uri_copy); return NULL;}
 
     name++;
 
@@ -195,8 +194,31 @@ http_options_t *http_parse_uri_options(const char *uri){
         last_node = cursor;
     }
 
+    free(uri_copy);
     return first_node;
 }
+
+void http_delete_options(http_options_t *options){
+    http_options_t *next;
+    while(options != NULL){
+        free(options->name);
+        free(options->value);
+
+        next = options->next;
+
+        free(options);
+        options = next;
+    }
+}
+
+// get an option
+http_options_t *http_get_option(const char *name, http_options_t *options){
+    while(options != NULL){
+        if(!strcmp(options->name, name)) return options;
+        options = options->next;
+    }
+    return NULL;
+} 
 
 size_t hash_data(char *name, size_t size){
     size_t acc = 0;
@@ -298,7 +320,8 @@ struct MHD_Response *router_uri_route_request_recursive(router_uri_t *router, ch
         router_uri_t *next_router = router_uri_get(router, uri);
 
         if(next_router == NULL && point != NULL){                                   // not this route, but the handle is called against the auto file
-            return router->handler(method, options, upload_data, upload_data_size, uri, data); 
+            // ++uri to jump over the '/' at the beggining of the file
+            return router->handler(method, options, upload_data, upload_data_size, ++uri, data); 
         }
         else if(next_router == NULL){
             return NULL;
@@ -307,6 +330,8 @@ struct MHD_Response *router_uri_route_request_recursive(router_uri_t *router, ch
             return router_uri_route_request_recursive(next_router, "/", method, options, upload_data, upload_data_size, data); 
         }
         else{
+            next_uri--;
+            *next_uri = '/';
             return router_uri_route_request_recursive(next_router, next_uri, method, options, upload_data, upload_data_size, data); 
         }
     }
@@ -314,6 +339,8 @@ struct MHD_Response *router_uri_route_request_recursive(router_uri_t *router, ch
 }
 
 struct MHD_Response *router_uri_route_request(router_uri_t *router, const char *url, const char *method, http_options_t *options, const char *upload_data, size_t upload_data_size, void *data){
+    if(router == NULL) return NULL;
+    
     size_t url_len = strlen(url) + 1;
     char *url_copy = (char *)calloc(url_len, sizeof(*url_copy));
     strncpy(url_copy, url, url_len);

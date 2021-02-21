@@ -26,6 +26,7 @@ char* get_win_error()
 char* get_win_resource_binary_data(char* token){
 
     HRSRC res_handle = FindResourceA(NULL, token, (LPCSTR)RT_RCDATA); // MAKEINTRESOURCEA(10) == RCDATA resource 
+    if(res_handle == NULL) return NULL;
 
     HGLOBAL my_resource = LoadResource(NULL, res_handle);
 

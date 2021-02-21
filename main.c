@@ -3,15 +3,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
+
 #include "curl/curl.h"
+
+#include "mysql.h"
+
 #include "doc.h"
 #include "doc_json.h"
 #include "doc_sql.h"
-#include "mysql.h"
+
+#include "my_custom_struct.h"
+
 #include "win_res.h"
-// #define MHD_PLATFORM_H
-// #include <sys/types.h>
-// #include <ws2tcpip.h>
+
 #include "microhttpd.h"
 #include "http_server_utils.h"
 #include "router_uri.h"
@@ -43,12 +47,42 @@ size_t curl_write_memory_callback(void *data, size_t element_size, size_t elemen
 
 int main(int argc, char **argv){
 
+    // ------------------------- Mysql -------------------------
+
+    MYSQL *db_weather_station;
+    
+    db_weather_station = mysql_init(NULL);
+
+    if( mysql_real_connect(db_weather_station, "localhost", "Peterson", "root", "global", 3306, NULL, 0) ){
+        printf("[%s.%u] Connect to DB.\n", __FILE__, __LINE__);
+    }
+    else{
+        printf("[%s.%u] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
+        return -1;
+    }
+
+    // /* Insert query */
+    // doc *insert_doc = doc_new(
+    //     "insert_doc", dt_obj,
+    //         "temp", dt_double, 30.0,
+    //         "humidity", dt_double, 50.0,
+    //         "incidency_sun", dt_double, 25.0,
+    //         "precipitation", dt_double, 5.0,
+    //     ";"
+    // );
+
+    // // doc_sql_insert_query(db_weather_station, insert_doc);
+
     // ------------------------- Micro Http --------------------
 
     struct MHD_Daemon *server_http;
 
     router_root_init();
     router_default_init();
+
+    my_custom_struct_t *mystruct = (my_custom_struct_t *)calloc(1, sizeof(*mystruct));
+    mystruct->magic_num = MY_CUSTOM_STRUCT_MAGIC_NUM;
+    mystruct->db = db_weather_station;
     
     server_http = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
@@ -56,7 +90,7 @@ int main(int argc, char **argv){
         on_client_connect,
         NULL,
         on_response,
-        (void *)router_root,
+        (void *)mystruct,
         MHD_OPTION_URI_LOG_CALLBACK,
         on_uri_parsing,
         NULL,
@@ -71,49 +105,6 @@ int main(int argc, char **argv){
         printf("HTTP server daemon initialization succeded.\n");
         (void)getc(stdin);
     }
-
-
-    // ------------------------- Mysql -------------------------
-
-    // MYSQL *db_weather_station;
-    
-    // db_weather_station = mysql_init(NULL);
-
-    // if( mysql_real_connect(db_weather_station, "localhost", "Peterson", "root", "global", 3306, NULL, 0) ){
-    //     printf("[%s.%u] Connect to DB.\n", __FILE__, __LINE__);
-    // }
-    // else{
-    //     printf("[%s.%u] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
-    //     return -1;
-    // }
-
-    // /* Insert query */
-    // doc *insert_doc = doc_new(
-    //     "insert_doc", dt_obj,
-    //         "temp", dt_double, 30.0,
-    //         "humidity", dt_double, 50.0,
-    //         "incidency_sun", dt_double, 25.0,
-    //         "precipitation", dt_double, 5.0,
-    //     ";"
-    // );
-
-    // // doc_sql_insert_query(db_weather_station, insert_doc);
-
-    // /* Select query */
-    // char *select_query = get_win_resource_binary_data("select_query");
-    // doc *doc_sql = doc_sql_select_query(db_weather_station, select_query, "data");
-
-    // FILE *json_file_out = fopen("./mysql_select.json", "w+");
-    // char *json_stream = doc_stringify_json(doc_sql);
-
-    // fprintf(json_file_out, "%s", json_stream);
-    // fflush(json_file_out);
-    // fclose(json_file_out);
-
-    // free(json_stream);
-    // free(select_query);
-    // doc_delete(doc_sql, ".");
-    // mysql_close(db_weather_station);
 
 
     // ------------------------------ CURL ---------------------
@@ -156,6 +147,10 @@ int main(int argc, char **argv){
     // curl_global_cleanup();
 
     // printf("[JSON]:\n%s\n", json_stream.stream);
+
+    free(mystruct);
+    MHD_stop_daemon(server_http);
+    mysql_close(db_weather_station);
 
     return 0;
 }

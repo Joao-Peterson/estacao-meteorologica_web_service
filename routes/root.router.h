@@ -4,43 +4,6 @@
 #include "router_uri.h"
 #include "api/api.router.h"
 
-
-// router_uri_t *router_root_index;
-
-// struct MHD_Response *router_root_index_handler(http_method_t method, http_options_t *options, const char *body, size_t body_size, char *filename_auto, void *data){
-//     struct MHD_Response *response;
-//     FILE *file;
-//     char buffer[255] = {0};
-    
-//     switch(method){
-//         case HTTP_GET:
-        
-//             file = fopen("web/index.html", "r+b");                
-
-//             size_t file_size = 0;
-//             char *file_stream = fload_into_mem(file, &file_size);
-            
-//             response = MHD_create_response_from_buffer(file_size, (void *)file_stream, MHD_RESPMEM_MUST_FREE);
-//             MHD_add_response_header(response, "Content-Type", "text/html");
-//             MHD_add_response_header(response, "Server", "Weather_station_API/1.0");
-
-//             printf("(((((WOW)))))\n");
-            
-//         break;
-
-//         default:
-//             response = NULL;
-//         break;
-//     }
-
-//     return response;
-// }
-
-// void router_root_index_init(void){
-//     router_root_index = router_uri_new("/index.html", 1, router_root_index_handler);
-// }
-
-
 struct MHD_Response *router_root_handler(http_method_t method, http_options_t *options, const char *body, size_t body_size, char *filename_auto, void *data){
     struct MHD_Response *response;
     FILE *file;
@@ -53,7 +16,6 @@ struct MHD_Response *router_root_handler(http_method_t method, http_options_t *o
                 file = fopen("web/index.html", "r+b");                
             }
             else{
-                filename_auto++;                                                    // jump over initial '/'
                 snprintf(buffer, 500, "web/%s", filename_auto);
                 file = fopen(buffer, "r+b");                
             }
@@ -82,7 +44,6 @@ router_uri_t *router_root;
 void router_root_init(void){
     router_root = router_uri_new("/", 20, router_root_handler);
     router_uri_use(router_root, &router_api, router_api_init);
-    // router_uri_use(router_root, &router_root_index, router_root_index_init);
 }
 
 #endif

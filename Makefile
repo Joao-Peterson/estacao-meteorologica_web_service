@@ -21,7 +21,7 @@ L_FLAGS += ./lib/libmysql.lib
 L_FLAGS += -lws2_32
 
 SOURCES := main.c
-MAIN_APP := main.exe
+MAIN_APP := server.exe
 BUILD_DIR := build/
 RES_DIR := res/
 

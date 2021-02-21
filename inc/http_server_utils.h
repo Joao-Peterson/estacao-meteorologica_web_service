@@ -8,6 +8,7 @@
 #include "microhttpd.h"
 #include "router_uri.h"
 #include "../routes/default/default.router.h"
+#include "../routes/root.router.h"
 
 /* ----------------------------------------- Definitions -------------------------------------- */
 
@@ -37,7 +38,7 @@ static enum MHD_Result on_client_connect(void *cls, const struct sockaddr *addr,
 
     char *client_ip = inet_ntoa(client->sin_addr);
     
-    printf("Client IP: %s\n",client_ip);
+    printf("[Client IP: %s]:\n",client_ip);
 
     return MHD_YES;
 }
@@ -62,29 +63,31 @@ static enum MHD_Result on_response(
 
     static int dummy = 0;
 
-    if (strcmp(method, "GET")) return MHD_NO;                                       // unexpected method
-    
-
     if (dummy == 0){                                                                // The first time only the headers are valid, 
         dummy++;                                                                    // do not respond in the first round...
         return MHD_YES;
     }
 
-    if (*upload_data_size != 0) return MHD_NO;                                      // upload data in a GET!?
+    printf("-----------------------------------\n");
 
-    MHD_get_connection_values(connection, MHD_HEADER_KIND, print_keys, NULL);
+    // MHD_get_connection_values(connection, MHD_HEADER_KIND, print_keys, NULL);
 
     http_options_t *options = *ptr;                                                 // retrieve options from URI
+    http_options_t *cursor  = *ptr;
+    
     printf("Options: \n");
-    while(options != NULL){
-        printf("    -%s: %s\n", options->name, options->value);
-        options = options->next;
+    while(cursor != NULL){
+        printf("    -%s: %s\n", cursor->name, cursor->value);
+        cursor = cursor->next;
     }
+    
     printf("Responding HTML. url: %s - method: %s - version: %s - data: %s\n\n", url, method, version, upload_data);
 
-    router_uri_t *router = (router_uri_t *)cls;                                     // retrieve root router
+    router_uri_t *router = router_root;                                             // retrieve root router
 
-    struct MHD_Response *response = router_uri_route_request(router, url, method, options, upload_data, *upload_data_size, NULL);
+    if(router == NULL){ printf("Unintialized root_router\n.");}
+
+    struct MHD_Response *response = router_uri_route_request(router, url, method, options, upload_data, *upload_data_size, cls);
 
     int ret;
 
@@ -98,8 +101,10 @@ static enum MHD_Result on_response(
 
     if(ret == MHD_NO) dummy = 0;
 
-    MHD_destroy_response(response);
+    printf("-----------------------------------\n\n");
 
+    MHD_destroy_response(response);
+    http_delete_options(options);
     return (enum MHD_Result)ret;
 }
 

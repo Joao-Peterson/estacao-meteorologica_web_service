@@ -1,3 +1,6 @@
+#ifndef _DOC_SQL_HEADER_
+#define _DOC_SQL_HEADER_
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "mysql.h"
@@ -193,38 +196,46 @@ doc *doc_sql_select_query(MYSQL *mysql_db, char *sql_query, char *name_array_of_
                 cell_data.value = NULL;
             }
 
+
             // add to doc
-            doc_type_t value_type = type_mysql_to_doc_type(cell_data.type);
+            doc_type_t value_type;
+
+            if(cell_data.value == NULL){
+                value_type = dt_null;
+            }
+            else{
+                value_type = type_mysql_to_doc_type(cell_data.type);
+            }
 
             switch(value_type){
                 case dt_string:
                 case dt_bindata:
                     doc_add(doc_from_mysql, json_data_row_obj,
-                        cell_data.name, type_mysql_to_doc_type(cell_data.type), cell_data.value, (size_t)query_response_row_lengths[i]
+                        cell_data.name, value_type, cell_data.value, (size_t)query_response_row_lengths[i]
                     );
                 break;
 
                 case dt_int64:
                     doc_add(doc_from_mysql, json_data_row_obj,
-                        cell_data.name, type_mysql_to_doc_type(cell_data.type), strtoll(cell_data.value, NULL, 10)
+                        cell_data.name, value_type, strtoll(cell_data.value, NULL, 10)
                     );
                 break;
 
                 case dt_double:
                     doc_add(doc_from_mysql, json_data_row_obj,
-                        cell_data.name, type_mysql_to_doc_type(cell_data.type), strtod(cell_data.value, NULL)
+                        cell_data.name, value_type, strtod(cell_data.value, NULL)
                     );
                 break;
 
                 case dt_bool:
                     doc_add(doc_from_mysql, json_data_row_obj,
-                        cell_data.name, type_mysql_to_doc_type(cell_data.type), ((cell_data.value[0] == 't') ? true : false)
+                        cell_data.name, value_type, ((cell_data.value[0] == 't') ? true : false)
                     );
                 break;
 
                 case dt_null:
                     doc_add(doc_from_mysql, json_data_row_obj,
-                        cell_data.name, type_mysql_to_doc_type(cell_data.type)
+                        cell_data.name, value_type
                     );
                 break;
             }             
@@ -241,3 +252,5 @@ doc *doc_sql_select_query(MYSQL *mysql_db, char *sql_query, char *name_array_of_
     free(json_data_row_obj);
     mysql_free_result(query_response);
 }
+
+#endif
