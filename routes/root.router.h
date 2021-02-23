@@ -29,6 +29,8 @@ struct MHD_Response *router_root_handler(http_method_t method, http_options_t *o
             MHD_add_response_header(response, "Content-Type", "text/html");
             MHD_add_response_header(response, "Server", "Weather_station_API/1.0");
             
+            fclose(file);
+
         break;
 
         default:

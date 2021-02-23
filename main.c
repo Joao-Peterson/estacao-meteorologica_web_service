@@ -11,6 +11,7 @@
 #include "doc.h"
 #include "doc_json.h"
 #include "doc_sql.h"
+#include "cmd_friend.h"
 
 #include "my_custom_struct.h"
 
@@ -32,6 +33,10 @@
  * https://www.gnu.org/software/libmicrohttpd/tutorial.html
  */
 
+/* ----------------------------------------- Definitions -------------------------------------- */
+
+#define DB_KEY_ 1
+
 /* ----------------------------------------- Types -------------------------------------------- */
 
 typedef struct{
@@ -39,13 +44,58 @@ typedef struct{
     size_t len;
 }json_stream_t;
 
+typedef struct{
+    int port;
+    char *mysql_credentials;
+    char *mysql_schema;
+    char *mysql_user;
+    char *mysql_password;
+    char *mysql_host;
+    char *mysql_port_str;
+    int mysql_port;
+}arg_struct_t;
+
+/* ----------------------------------------- Globals ------------------------------------------ */
+
+cmdf_option options[] = 
+{
+    {"db",      5,      OPTION_NO_CHAR_KEY, 1, "Data base credentials. Eg: \"User:Password@host:port\""},
+    {"mysql",   6,      OPTION_NO_CHAR_KEY | OPTION_ALIAS},
+    {"schema",  's',    0, 1, "Mysql database schema"},
+    {"port",    'p',    0, 1, "server port. Eg. \"5505\""},
+    {0}
+};
+
+// cmdf_option options[] = 
+// {
+//     {"where",   'w', 0,                                             1, "Where to create the project"},
+//     {"file",    'f', OPTION_ALIAS },
+//     {"tags",    't', OPTION_OPTIONAL,                              -1, "Tags to put in"},
+//     {"verbose", 'v', OPTION_OPTIONAL | OPTION_NO_LONG_KEY,          0, "Verbose mode"},
+//     {"Wall",    'W', OPTION_OPTIONAL,                               0, "Wall error mode"},
+//     {"vscode",   2,  OPTION_OPTIONAL | OPTION_NO_CHAR_KEY,          0, "Visual studio code .vscode folder with .json configuration files"},
+//     {0}
+// };
+
+arg_struct_t arg_struct = {.port = 0, .mysql_credentials = NULL};
+
 /* ----------------------------------------- Prototypes --------------------------------------- */
 
 size_t curl_write_memory_callback(void *data, size_t element_size, size_t elements, void *user_data);
 
+int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct);
+
 /* ----------------------------------------- Main --------------------------------------------- */
 
 int main(int argc, char **argv){
+
+    // ------------------------- cmd_friend --------------------
+
+    set_cmdf_default_info_usage("Usage: [-s, -p] [SERVER_PORT] [--mysql, --db] [MYSQL_CREDENTIALS (User:password@host:port)]");
+    set_cmdf_default_info_version("v1.0 - 22/02/2021");
+    set_cmdf_default_info_contact_info("Repo: https://github.com/Joao-Peterson/weather_station_web_service - Email: joco_zx@hotmail.com");
+
+    cdmf_parse_options(options, parse_options, argc, argv, PARSER_FLAG_USE_PREDEFINED_OPTIONS | PARSER_FLAG_PRINT_ERRORS_STDOUT | PARSER_FLAG_DONT_IGNORE_NON_REGISTERED_OPTIONS, (void *)&arg_struct);
 
     // ------------------------- Mysql -------------------------
 
@@ -53,11 +103,11 @@ int main(int argc, char **argv){
     
     db_weather_station = mysql_init(NULL);
 
-    if( mysql_real_connect(db_weather_station, "localhost", "Peterson", "root", "global", 3306, NULL, 0) ){
-        printf("[%s.%u] Connect to DB.\n", __FILE__, __LINE__);
+    if( mysql_real_connect(db_weather_station, arg_struct.mysql_host, arg_struct.mysql_user, arg_struct.mysql_password, arg_struct.mysql_schema, arg_struct.mysql_port, NULL, 0) ){
+        printf("[%s.%u] [MySQL] Connected to DB.\n", __FILE__, __LINE__);
     }
     else{
-        printf("[%s.%u] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
+        printf("[%s.%u] [MySQL] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
         return -1;
     }
 
@@ -86,7 +136,7 @@ int main(int argc, char **argv){
     
     server_http = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
-        5505,
+        arg_struct.port,
         on_client_connect,
         NULL,
         on_response,
@@ -148,6 +198,7 @@ int main(int argc, char **argv){
 
     // printf("[JSON]:\n%s\n", json_stream.stream);
 
+    free(arg_struct.mysql_credentials);
     free(mystruct);
     MHD_stop_daemon(server_http);
     mysql_close(db_weather_station);
@@ -172,4 +223,58 @@ size_t curl_write_memory_callback(void *data, size_t element_size, size_t elemen
     json->stream[json->len - 1] = '\0';
 
     return data_size;
+}
+
+int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct)
+{
+    arg_struct_t *myvariables = (arg_struct_t*)extern_user_variables_struct; // retrieving custom struct by casting
+    char *cursor;
+    size_t arg_len;
+
+    switch (key)
+    {
+        case 5: 
+        case 6: 
+            arg_len = strlen(arg) + 1;
+            myvariables->mysql_credentials = (char *)calloc(arg_len, sizeof(*myvariables->mysql_credentials));
+            strncpy(myvariables->mysql_credentials, arg, arg_len);
+
+            myvariables->mysql_user = myvariables->mysql_credentials;
+
+            cursor = strpbrk(myvariables->mysql_credentials, ":@");
+            *cursor = '\0';
+            cursor++;
+
+            myvariables->mysql_password = cursor;
+
+            cursor = strpbrk(cursor, ":@");
+            *cursor = '\0';
+            cursor++;
+
+            myvariables->mysql_host = cursor;
+
+            cursor = strpbrk(cursor, ":@");
+            *cursor = '\0';
+            cursor++;
+
+            myvariables->mysql_port_str = cursor;
+
+            myvariables->mysql_port = atoi(myvariables->mysql_port_str);
+        break;
+
+        case 'p':
+            myvariables->port = atoi(arg);
+        break;
+
+        case 's':
+            arg_len = strlen(arg) + 1;
+            myvariables->mysql_schema = (char *)calloc(arg_len, sizeof(*myvariables->mysql_schema));
+            strncpy(myvariables->mysql_schema, arg, arg_len);
+        break;
+
+        default: 
+        break;
+    }
+
+    return 0;
 }

@@ -1,10 +1,56 @@
 <html>
 
 <head>
-    <title>libmicrohttpd demo</title>
-
+    <title>Weather_station_API v1.0</title>
 </head>
 
-<body>libmicrohttpd demo</body>
+<body>
+    <h1>
+        Weather_station_API v1.0
+    </h1>
+    <p>
+        This api works by sending GET request to two routes, <b>/api/today</b> and <b>/api/historic</b>. A JSON file is returned with an
+        array of objects named "data". Ex:
+        
+        <br>
+        <span style="white-space: pre-wrap; font-family: monospace;">
+            {
+                "data": [
+                  {
+                    "temp": 30,
+                    "heat_index": 31.049081,
+                    "humidity": 50,
+                    "dew_point": 18.44087,
+                    "incidency_sun": 25,
+                    "precipitation": 5,
+                    "req_date": "2021-02-22",
+                    "req_time": "00:07:27"
+                  },
+                  {
+                    "temp": 30,
+                    "heat_index": 31.049081,
+                    "humidity": 50,
+                    "dew_point": 18.44087,
+                    "incidency_sun": 25,
+                    "precipitation": 5,
+                    "req_date": "2021-02-22",
+                    "req_time": "00:07:29"
+                  }
+                ]
+              }
+        </span>
+        <br>
+
+    </p>
+
+    <p>
+        Route <b>/api/today</b> retrieves today's wheater data and <b>/api/historic</b> retrieves historic data between two times,
+        both should be send as http options like this:
+        
+        <b>/api/historic?date1=2021-02-01&date2=2021-03-20</b>
+    </p>
+
+    
+</body>
 
 </html>
