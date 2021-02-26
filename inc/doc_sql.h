@@ -91,12 +91,26 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     doc *incidency_sun_ptr  = doc_get(data, "incidency_sun");
     doc *precipitation_ptr  = doc_get(data, "precipitation");
 
-    double temp             = doc_get_value(temp_ptr, double);                 
-    double humidity         = doc_get_value(humidity_ptr, double);                     
-    double incidency_sun    = doc_get_value(incidency_sun_ptr, double);                          
-    double precipitation    = doc_get_value(precipitation_ptr, double);                          
-    double heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
-    double dew_point_value  = dew_point (temp, humidity/100.0);     
+    double temp                 = 0.0;
+    double humidity             = 0.0;
+    double incidency_sun        = 0.0;
+    double precipitation        = 0.0;
+    double heat_index_value     = 0.0;
+    double dew_point_value      = 0.0;
+
+    if(temp_ptr->type == dt_double)
+        temp = doc_get_value(temp_ptr, double);                 
+    if(humidity_ptr->type == dt_double)
+        humidity = doc_get_value(humidity_ptr, double);                     
+    if(incidency_sun_ptr->type == dt_double)
+        incidency_sun = doc_get_value(incidency_sun_ptr, double);                          
+    if(precipitation_ptr->type == dt_double)
+        precipitation = doc_get_value(precipitation_ptr, double);                          
+
+    if(temp != 0.0 && humidity != 0.0){
+        heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
+        dew_point_value  = dew_point (temp, humidity/100.0);     
+    }
 
     snprintf(query_buffer, 1000, insert_query, 
         temp,

@@ -1,6 +1,9 @@
 *.exe
+.vscode/
+
 *.o
 *.json
 *.res
+*.http
 
-.vscode/
+/mysql_start_cmd.txt

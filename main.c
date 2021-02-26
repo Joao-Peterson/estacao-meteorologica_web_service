@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <time.h>
 
 #include "curl/curl.h"
 
@@ -53,31 +54,24 @@ typedef struct{
     char *mysql_host;
     char *mysql_port_str;
     int mysql_port;
+    char *weather_station_url;
+    int weather_station_poll_seconds;
 }arg_struct_t;
 
 /* ----------------------------------------- Globals ------------------------------------------ */
 
 cmdf_option options[] = 
 {
-    {"db",      5,      OPTION_NO_CHAR_KEY, 1, "Data base credentials. Eg: \"User:Password@host:port\""},
-    {"mysql",   6,      OPTION_NO_CHAR_KEY | OPTION_ALIAS},
-    {"schema",  's',    0, 1, "Mysql database schema"},
-    {"port",    'p',    0, 1, "server port. Eg. \"5505\""},
+    {"db",        5,      OPTION_NO_CHAR_KEY, 1, "Data base credentials. Eg: \"User:Password@host:port\""},
+    {"mysql",     6,      OPTION_NO_CHAR_KEY | OPTION_ALIAS},
+    {"schema",    's',    0, 1, "Mysql database schema"},
+    {"port",      'p',    0, 1, "server port. Eg. \"5505\""},
+    {"station",   'u',    0, 1, "wheater station URL"},
+    {"poll_time", 't',    OPTION_OPTIONAL, 1, "time to poll the weather station, in seconds"},
     {0}
 };
 
-// cmdf_option options[] = 
-// {
-//     {"where",   'w', 0,                                             1, "Where to create the project"},
-//     {"file",    'f', OPTION_ALIAS },
-//     {"tags",    't', OPTION_OPTIONAL,                              -1, "Tags to put in"},
-//     {"verbose", 'v', OPTION_OPTIONAL | OPTION_NO_LONG_KEY,          0, "Verbose mode"},
-//     {"Wall",    'W', OPTION_OPTIONAL,                               0, "Wall error mode"},
-//     {"vscode",   2,  OPTION_OPTIONAL | OPTION_NO_CHAR_KEY,          0, "Visual studio code .vscode folder with .json configuration files"},
-//     {0}
-// };
-
-arg_struct_t arg_struct = {.port = 0, .mysql_credentials = NULL};
+arg_struct_t arg_struct;
 
 /* ----------------------------------------- Prototypes --------------------------------------- */
 
@@ -88,6 +82,10 @@ int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_
 /* ----------------------------------------- Main --------------------------------------------- */
 
 int main(int argc, char **argv){
+
+// ./main.exe --db Peterson:root@localhost:3306 --schema global --port 5505 --station https://192.168.0.155:3333/api/weather_station
+
+    arg_struct.weather_station_poll_seconds = (15*60);                              // 15 minutes
 
     // ------------------------- cmd_friend --------------------
 
@@ -110,18 +108,6 @@ int main(int argc, char **argv){
         printf("[%s.%u] [MySQL] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
         return -1;
     }
-
-    // /* Insert query */
-    // doc *insert_doc = doc_new(
-    //     "insert_doc", dt_obj,
-    //         "temp", dt_double, 30.0,
-    //         "humidity", dt_double, 50.0,
-    //         "incidency_sun", dt_double, 25.0,
-    //         "precipitation", dt_double, 5.0,
-    //     ";"
-    // );
-
-    // // doc_sql_insert_query(db_weather_station, insert_doc);
 
     // ------------------------- Micro Http --------------------
 
@@ -153,52 +139,75 @@ int main(int argc, char **argv){
     }
     else{
         printf("HTTP server daemon initialization succeded.\n");
-        (void)getc(stdin);
     }
-
 
     // ------------------------------ CURL ---------------------
 
-    // CURL *curl;
-    // CURLcode curlcode;
-    // json_stream_t json_stream = { .len = 1, .stream = calloc(1,1)};
+    // times
 
-    // doc *mydoc;
+    time_t cur_time ;
+    time_t last_time ;
+    cur_time = time(NULL);
+    last_time = cur_time;
 
-    // curl_global_init(CURL_GLOBAL_ALL);
+    CURL *curl;
+    CURLcode curlcode;
+    json_stream_t json_stream = { .len = 1, .stream = calloc(1,1)};
 
-    // curl = curl_easy_init();
+    doc *mydoc;
 
-    // if(curl){
+    curl_global_init(CURL_GLOBAL_ALL);
 
-    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&json_stream);
-    //     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_memory_callback);
+    curl = curl_easy_init();
 
-    //     curl_easy_setopt(curl, CURLOPT_URL, "https://jsonplaceholder.typicode.com/todos/2");
+    if(curl){
 
-    //     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    //     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&json_stream);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_memory_callback);
 
-    //     curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-bot/1.0");
-    //     // curl_easy_setopt(curl, CURLOPT_USERNAME, "XXX");
-    //     // curl_easy_setopt(curl, CURLOPT_PASSWORD, "XXX");
+        curl_easy_setopt(curl, CURLOPT_URL, arg_struct.weather_station_url);
 
-    //     // curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, char *error_msg_buffer);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-bot/1.0");
+        // curl_easy_setopt(curl, CURLOPT_USERNAME, "XXX");
+        // curl_easy_setopt(curl, CURLOPT_PASSWORD, "XXX");
+        // curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, char *error_msg_buffer);
+
+        while(1){
+
+            if(difftime(cur_time, last_time) > (double)arg_struct.weather_station_poll_seconds){
+                curlcode = curl_easy_perform(curl);
+
+                if(curlcode != CURLE_OK)
+                    printf("curl_error: %s", curl_easy_strerror(curlcode));
+                
+                printf("[%s.%i] [Station Data]:\n%s\n", __FILE__, __LINE__, json_stream.stream);
+
+                doc *doc_weather_station = doc_parse_json(json_stream.stream);
+                
+                /* Insert query */
+                doc_sql_insert_query(db_weather_station, doc_weather_station);
+
+                free(json_stream.stream);
+                doc_delete(doc_weather_station, ".");
+
+                last_time = cur_time;
+            }
+
+            time(&cur_time);
+        }
+
+        curl_easy_cleanup(curl);
+    }
 
 
-    //     curlcode = curl_easy_perform(curl);
-
-    //     if(curlcode != CURLE_OK)
-    //         printf("curk_error: %s", curl_easy_strerror(curlcode));
-
-    //     curl_easy_cleanup(curl);
-    // }
-
-    // curl_global_cleanup();
-
-    // printf("[JSON]:\n%s\n", json_stream.stream);
+    curl_global_cleanup();
 
     free(arg_struct.mysql_credentials);
+    free(arg_struct.mysql_schema);
+    free(arg_struct.weather_station_url);
     free(mystruct);
     MHD_stop_daemon(server_http);
     mysql_close(db_weather_station);
@@ -225,8 +234,8 @@ size_t curl_write_memory_callback(void *data, size_t element_size, size_t elemen
     return data_size;
 }
 
-int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct)
-{
+int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct){
+    
     arg_struct_t *myvariables = (arg_struct_t*)extern_user_variables_struct; // retrieving custom struct by casting
     char *cursor;
     size_t arg_len;
@@ -266,10 +275,20 @@ int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_
             myvariables->port = atoi(arg);
         break;
 
+        case 't':
+            myvariables->weather_station_poll_seconds = atoi(arg);
+        break;
+
         case 's':
             arg_len = strlen(arg) + 1;
             myvariables->mysql_schema = (char *)calloc(arg_len, sizeof(*myvariables->mysql_schema));
             strncpy(myvariables->mysql_schema, arg, arg_len);
+        break;
+
+        case 'u':
+            arg_len = strlen(arg) + 1;
+            myvariables->weather_station_url = (char *)calloc(arg_len, sizeof(*myvariables->weather_station_url));
+            strncpy(myvariables->weather_station_url, arg, arg_len);
         break;
 
         default: 

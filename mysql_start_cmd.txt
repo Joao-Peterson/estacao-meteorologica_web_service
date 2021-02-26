@@ -1,1 +1,0 @@
-"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe" --basedir="C:\ProgramData\MySQL\MySQL Server 8.0" --datadir="C:\ProgramData\MySQL\MySQL Server 8.0\Data" --console
