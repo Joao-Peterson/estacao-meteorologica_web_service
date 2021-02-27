@@ -36,7 +36,7 @@
 
 /* ----------------------------------------- Definitions -------------------------------------- */
 
-#define DB_KEY_ 1
+#define DAY_SEC (24*60*60)
 
 /* ----------------------------------------- Types -------------------------------------------- */
 
@@ -78,6 +78,8 @@ arg_struct_t arg_struct;
 size_t curl_write_memory_callback(void *data, size_t element_size, size_t elements, void *user_data);
 
 int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct);
+
+size_t tm_to_sec(struct tm time_struct);
 
 /* ----------------------------------------- Main --------------------------------------------- */
 
@@ -144,11 +146,10 @@ int main(int argc, char **argv){
     // ------------------------------ CURL ---------------------
 
     // times
-
-    time_t cur_time ;
-    time_t last_time ;
-    cur_time = time(NULL);
-    last_time = cur_time;
+    time_t raw_time;
+    raw_time = time(NULL);
+    struct tm *cur_date = localtime(&raw_time);
+    int time_index = tm_to_sec(*cur_date) / arg_struct.weather_station_poll_seconds;
 
     CURL *curl;
     CURLcode curlcode;
@@ -177,8 +178,14 @@ int main(int argc, char **argv){
 
         while(1){
 
-            if(difftime(cur_time, last_time) > (double)arg_struct.weather_station_poll_seconds){
-                
+            if(time_index*arg_struct.weather_station_poll_seconds >= DAY_SEC){
+                time_index = 0;
+            }
+            else if(tm_to_sec(*cur_date) >= (time_index + 1)*arg_struct.weather_station_poll_seconds){
+
+                printf("\nClient ----------------------------\n");
+
+                printf("[%s.%i] [Weather station GET]: \n- Time: %s- URL: %s\n", __FILE__, __LINE__, asctime(cur_date), arg_struct.weather_station_url);
                 curlcode = curl_easy_perform(curl);
 
                 long http_resp_code;
@@ -202,12 +209,16 @@ int main(int argc, char **argv){
                     json_stream.stream = NULL;
                     json_stream.len = 1;
                     doc_delete(doc_weather_station, ".");
+
                 }
                 
-                last_time = cur_time;
+                printf("-----------------------------------\n");
+
+                time_index++;
             }
 
-            time(&cur_time);
+            time(&raw_time);
+            cur_date = localtime(&raw_time);
         }
 
         curl_easy_cleanup(curl);
@@ -305,4 +316,8 @@ int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_
     }
 
     return 0;
+}
+
+size_t tm_to_sec(struct tm time_struct){
+    return time_struct.tm_hour*60*60 + time_struct.tm_min*60 + time_struct.tm_sec;
 }
