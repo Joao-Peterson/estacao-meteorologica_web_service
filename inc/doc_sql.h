@@ -4,13 +4,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "mysql.h"
-#include "win_res.h"
+#include "fload_into_mem.h"
 #include "doc.h"
 #include "doc_json.h"
 #include "dew_point.h"
 #include "heat_index.h"
-
-// char *select_query = get_win_resource_binary_data("select_query");
 
 /**
  * @brief makes an type association between the 'mysql' types and 'doc' types
@@ -83,7 +81,8 @@ doc_type_t type_mysql_to_doc_type(enum_field_types mysql_type){
 void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     int mysql_ret_code = 0; 
 
-    char *insert_query = get_win_resource_binary_data("insert_query");
+    FILE *insert_query_file = fopen("./sql/insert_query_c.sql", "r+b");
+    char *insert_query = fload_into_mem(insert_query_file, NULL);
     char *query_buffer = calloc(1000, sizeof(*query_buffer));
 
     doc *temp_ptr           = doc_get(data, "temp");
@@ -123,13 +122,13 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     
     mysql_ret_code = mysql_query(mysql_db, query_buffer);
 
+    free(insert_query);
+    free(query_buffer);
+
     if(mysql_ret_code)
         printf("[%s.%u] Query error: %s.\n", __FILE__, __LINE__, mysql_error(mysql_db));
     else
         printf("[%s.%u] Query complete. Rows altered: [%u].\n", __FILE__, __LINE__, (uint32_t)mysql_affected_rows(mysql_db));
-
-    free(insert_query);
-    free(query_buffer);
 }
 
 /**
@@ -149,8 +148,10 @@ doc *doc_sql_select_query(MYSQL *mysql_db, char *sql_query, char *name_array_of_
 
     mysql_ret_code = mysql_query(mysql_db, sql_query);
 
-    if(mysql_ret_code)
-        printf("[%s.%u] Query error: %s.", __FILE__, __LINE__, mysql_error(mysql_db));
+    if(mysql_ret_code){
+        printf("[%s.%u] Query error: %s.\n", __FILE__, __LINE__, mysql_error(mysql_db));
+        return NULL;
+    }
     else
         printf("[%s.%u] Select Query complete.\n", __FILE__, __LINE__);
 

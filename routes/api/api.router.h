@@ -4,6 +4,7 @@
 #include "router_uri.h"
 #include "today/today.router.h"
 #include "historic/historic.router.h"
+#include "fload_into_mem.h"
 
 struct MHD_Response *router_api_handler(http_method_t method, http_options_t *options, const char *body, size_t body_size, char *filename_auto, void *data){
     struct MHD_Response *response;
@@ -29,7 +30,6 @@ struct MHD_Response *router_api_handler(http_method_t method, http_options_t *op
             response = MHD_create_response_from_buffer(file_size, (void *)file_stream, MHD_RESPMEM_MUST_FREE);
             MHD_add_response_header(response, "Content-Type", "text/html");
             MHD_add_response_header(response, "Server", "Weather_station_API/1.0");
-            // printf("[%s.%u] Debug - %s.\n", __FILE__, __LINE__, file_stream);                        DEBUG line code
 
             fclose(file);
             

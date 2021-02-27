@@ -14,6 +14,8 @@ struct MHD_Response *router_historic_handler(http_method_t method, http_options_
     http_options_t *date1;
     http_options_t *date2;
     doc *doc_sql;
+    FILE *select_query_interval_file;
+    size_t len;
 
     switch(method){
         case HTTP_GET:
@@ -24,7 +26,8 @@ struct MHD_Response *router_historic_handler(http_method_t method, http_options_
 
             if(date1 == NULL || date2 == NULL) return NULL;
 
-            char *select_query = get_win_resource_binary_data("select_query_interval");
+            select_query_interval_file = fopen("./sql/select_query_interval.sql", "r+b");
+            char *select_query = fload_into_mem(select_query_interval_file, &len);
             char query_buffer[500] = {0};
             snprintf(query_buffer, 500, select_query, date1->value, date2->value);
 
@@ -38,8 +41,9 @@ struct MHD_Response *router_historic_handler(http_method_t method, http_options_
             MHD_add_response_header(response, "Content-Type", "text/json");
             MHD_add_response_header(response, "Server", "Weather_station_API/1.0");
 
-            doc_delete(doc_sql, ".");
             free(select_query);
+            doc_delete(doc_sql, ".");
+            fclose(select_query_interval_file);
         break;
 
         default:

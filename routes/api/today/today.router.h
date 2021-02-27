@@ -6,18 +6,24 @@
 #include "doc.h"
 #include "doc_json.h"
 #include "doc_sql.h"
-#include "win_res.h"
+#include "fload_into_mem.h"
 
 struct MHD_Response *router_today_handler(http_method_t method, http_options_t *options, const char *body, size_t body_size, char *filename_auto, void *data){
     struct MHD_Response *response;
     my_custom_struct_t *mystruct = (my_custom_struct_t *)data;
     doc *doc_sql;
+    FILE *select_query_file;
+    size_t len;
 
     switch(method){
         case HTTP_GET:
             if(mystruct->magic_num != MY_CUSTOM_STRUCT_MAGIC_NUM) return NULL;
 
-            char *select_query = get_win_resource_binary_data("select_query");
+            select_query_file = fopen("./sql/select_query.sql", "r+b");
+            if(select_query_file == NULL)
+                printf("[%s.%u]\n", __FILE__, __LINE__);
+                
+            char *select_query = fload_into_mem(select_query_file, &len);
             doc_sql = doc_sql_select_query(mystruct->db, select_query, "data");
             char *select_query_json = doc_stringify_json(doc_sql);
 
@@ -27,6 +33,7 @@ struct MHD_Response *router_today_handler(http_method_t method, http_options_t *
 
             doc_delete(doc_sql, ".");
             free(select_query);
+            fclose(select_query_file);
         break;
 
         default:

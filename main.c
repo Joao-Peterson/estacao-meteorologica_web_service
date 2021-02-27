@@ -178,21 +178,32 @@ int main(int argc, char **argv){
         while(1){
 
             if(difftime(cur_time, last_time) > (double)arg_struct.weather_station_poll_seconds){
+                
                 curlcode = curl_easy_perform(curl);
 
-                if(curlcode != CURLE_OK)
-                    printf("curl_error: %s", curl_easy_strerror(curlcode));
+                long http_resp_code;
+                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp_code);
+
+                if(curlcode != CURLE_OK){
+                    printf("[%s.%i] [Curl error]: %s\n", __FILE__, __LINE__, curl_easy_strerror(curlcode));
+                }
+                else if(http_resp_code > 400){
+                    printf("[%s.%i] [HTTP error code]: %i\n", __FILE__, __LINE__, http_resp_code);
+                }
+                else{
+                    printf("[%s.%i] [Station Data]:\n%s\n", __FILE__, __LINE__, json_stream.stream);
+
+                    doc *doc_weather_station = doc_parse_json(json_stream.stream);
+                    
+                    /* Insert query */
+                    doc_sql_insert_query(db_weather_station, doc_weather_station);
+
+                    free(json_stream.stream);
+                    json_stream.stream = NULL;
+                    json_stream.len = 1;
+                    doc_delete(doc_weather_station, ".");
+                }
                 
-                printf("[%s.%i] [Station Data]:\n%s\n", __FILE__, __LINE__, json_stream.stream);
-
-                doc *doc_weather_station = doc_parse_json(json_stream.stream);
-                
-                /* Insert query */
-                doc_sql_insert_query(db_weather_station, doc_weather_station);
-
-                free(json_stream.stream);
-                doc_delete(doc_weather_station, ".");
-
                 last_time = cur_time;
             }
 
@@ -201,7 +212,6 @@ int main(int argc, char **argv){
 
         curl_easy_cleanup(curl);
     }
-
 
     curl_global_cleanup();
 
@@ -218,7 +228,6 @@ int main(int argc, char **argv){
 /* ----------------------------------------- Implementations ---------------------------------- */
 
 size_t curl_write_memory_callback(void *data, size_t element_size, size_t elements, void *user_data){
-
     size_t data_size = element_size * elements;
 
     json_stream_t *json = (json_stream_t *)user_data;
