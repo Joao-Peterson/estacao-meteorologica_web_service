@@ -23,6 +23,10 @@
 #include "router_uri.h"
 #include "routes/root.router.h"
 
+#include "log.h"
+
+#include <windows.h>
+
 /**
  * JSONTEST:
  * https://jsonplaceholder.typicode.com/todos/2
@@ -85,9 +89,14 @@ size_t tm_to_sec(struct tm time_struct);
 
 int main(int argc, char **argv){
 
-// ./main.exe --db Peterson:root@localhost:3306 --schema global --port 5505 --station https://192.168.0.155:3333/api/weather_station
-
     arg_struct.weather_station_poll_seconds = (15*60);                              // 15 minutes
+
+    set_cmd_colors();
+    log_out_set(stdout);
+
+    char *soy = get_win_resource_binary_data("soy");
+    log_colored(COLOR_MAGENTA_LOG, "\n\n\n%s\n\n\n", soy);
+    free(soy);
 
     // ------------------------- cmd_friend --------------------
 
@@ -104,10 +113,10 @@ int main(int argc, char **argv){
     db_weather_station = mysql_init(NULL);
 
     if( mysql_real_connect(db_weather_station, arg_struct.mysql_host, arg_struct.mysql_user, arg_struct.mysql_password, arg_struct.mysql_schema, arg_struct.mysql_port, NULL, 0) ){
-        printf("[%s.%u] [MySQL] Connected to DB.\n", __FILE__, __LINE__);
+        log_info("[MySQL] Connected to DB.\n");
     }
     else{
-        printf("[%s.%u] [MySQL] Error: %s.\n", __FILE__, __LINE__, mysql_error(db_weather_station));
+        log_error("[MySQL] Error: %s.\n", mysql_error(db_weather_station));
         return -1;
     }
 
@@ -136,11 +145,11 @@ int main(int argc, char **argv){
     );
 
     if(server_http == NULL){
-        printf("HTTP server daemon initialization failed.\n");
+        log_error("HTTP server daemon initialization failed.\n");
         return -1;
     }
     else{
-        printf("HTTP server daemon initialization succeded.\n");
+        log_info("HTTP server daemon initialization succeded.\n");
     }
 
     // ------------------------------ CURL ---------------------
@@ -178,27 +187,24 @@ int main(int argc, char **argv){
 
         while(1){
 
-            if(time_index*arg_struct.weather_station_poll_seconds >= DAY_SEC){
-                time_index = 0;
-            }
-            else if(tm_to_sec(*cur_date) >= (time_index + 1)*arg_struct.weather_station_poll_seconds){
+            if(tm_to_sec(*cur_date) >= (time_index + 1)*arg_struct.weather_station_poll_seconds){
 
-                printf("\nClient ----------------------------\n");
+                log_client("\n\n*[Client] --------------------------\n");
 
-                printf("[%s.%i] [Weather station GET]: \n- Time: %s- URL: %s\n", __FILE__, __LINE__, asctime(cur_date), arg_struct.weather_station_url);
+                log_client("[Weather station GET]: \n- Time: %s- URL: %s\n", asctime(cur_date), arg_struct.weather_station_url);
                 curlcode = curl_easy_perform(curl);
 
                 long http_resp_code;
                 curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp_code);
 
                 if(curlcode != CURLE_OK){
-                    printf("[%s.%i] [Curl error]: %s\n", __FILE__, __LINE__, curl_easy_strerror(curlcode));
+                    log_error("[Curl error]: %s\n", curl_easy_strerror(curlcode));
                 }
                 else if(http_resp_code > 400){
-                    printf("[%s.%i] [HTTP error code]: %i\n", __FILE__, __LINE__, http_resp_code);
+                    log_error("[HTTP error code]: %i\n", http_resp_code);
                 }
                 else{
-                    printf("[%s.%i] [Station Data]:\n%s\n", __FILE__, __LINE__, json_stream.stream);
+                    log_client("[Station Data]:\n%s\n", json_stream.stream);
 
                     doc *doc_weather_station = doc_parse_json(json_stream.stream);
                     
@@ -212,9 +218,15 @@ int main(int argc, char **argv){
 
                 }
                 
-                printf("-----------------------------------\n");
+                log_client("-----------------------------------\n\n");
 
-                time_index++;
+                if(time_index*arg_struct.weather_station_poll_seconds >= DAY_SEC){
+                    time_index = -1;
+                }
+                else{
+                    time_index++;
+                }
+
             }
 
             time(&raw_time);

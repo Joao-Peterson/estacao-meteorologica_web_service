@@ -7,6 +7,7 @@
 #include "fload_into_mem.h"
 #include "doc.h"
 #include "doc_json.h"
+#include "log.h"
 #include "dew_point.h"
 #include "heat_index.h"
 
@@ -99,12 +100,23 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
 
     if(temp_ptr->type == dt_double)
         temp = doc_get_value(temp_ptr, double);                 
+    else if(temp_ptr->type == dt_int32)
+        temp = (double)doc_get_value(temp_ptr, int32_t);                 
+
     if(humidity_ptr->type == dt_double)
         humidity = doc_get_value(humidity_ptr, double);                     
+    else if(humidity_ptr->type == dt_int32)
+        humidity = (double)doc_get_value(humidity_ptr, int32_t);                     
+
     if(incidency_sun_ptr->type == dt_double)
         incidency_sun = doc_get_value(incidency_sun_ptr, double);                          
+    else if(incidency_sun_ptr->type == dt_int32)
+        incidency_sun = (double)doc_get_value(incidency_sun_ptr, int32_t);                          
+
     if(precipitation_ptr->type == dt_double)
         precipitation = doc_get_value(precipitation_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        precipitation = (double)doc_get_value(precipitation_ptr, int32_t);                          
 
     if(temp != 0.0 && humidity != 0.0){
         heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
@@ -126,9 +138,9 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     free(query_buffer);
 
     if(mysql_ret_code)
-        printf("[%s.%u] Query error: %s.\n", __FILE__, __LINE__, mysql_error(mysql_db));
+        log_error("Query error: %s.\n", mysql_error(mysql_db));
     else
-        printf("[%s.%u] Query complete. Rows altered: [%u].\n", __FILE__, __LINE__, (uint32_t)mysql_affected_rows(mysql_db));
+        log_info("Query complete. Rows altered: [%u].\n", (uint32_t)mysql_affected_rows(mysql_db));
 }
 
 /**

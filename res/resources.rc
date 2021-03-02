@@ -2,10 +2,6 @@
 // https://docs.microsoft.com/en-us/windows/win32/menurc/resource-definition-statements
 // https://docs.microsoft.com/en-us/windows/win32/menurc/rcdata-resource
 
-select_query            RCDATA "../sql/select_query.sql"
-select_query_interval   RCDATA "../sql/select_query_interval.sql"
-insert_query            RCDATA "../sql/insert_query_c.sql"
-
 // text:
 // select_query RCDATA "../sql/select_query.sql"
 
@@ -14,3 +10,11 @@ insert_query            RCDATA "../sql/insert_query_c.sql"
 
 // sound:
 // coin0   WAVE "../sounds/coin0.wav"
+
+// ------------------------------------------------------------------------------------------
+
+soy RCDATA "../inc/soy.h"
+
+// select_query            RCDATA "../sql/select_query.sql"
+// select_query_interval   RCDATA "../sql/select_query_interval.sql"
+// insert_query            RCDATA "../sql/insert_query_c.sql"
