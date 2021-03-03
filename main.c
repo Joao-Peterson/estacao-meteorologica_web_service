@@ -4,27 +4,20 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <time.h>
-
 #include "curl/curl.h"
-
 #include "mysql.h"
-
 #include "doc.h"
 #include "doc_json.h"
 #include "doc_sql.h"
 #include "cmd_friend.h"
-
 #include "my_custom_struct.h"
-
 #include "win_res.h"
-
 #include "microhttpd.h"
 #include "http_server_utils.h"
 #include "router_uri.h"
 #include "routes/root.router.h"
-
 #include "log.h"
-
+#include "configuration.h"
 #include <windows.h>
 
 /**
@@ -49,33 +42,15 @@ typedef struct{
     size_t len;
 }json_stream_t;
 
-typedef struct{
-    int port;
-    char *mysql_credentials;
-    char *mysql_schema;
-    char *mysql_user;
-    char *mysql_password;
-    char *mysql_host;
-    char *mysql_port_str;
-    int mysql_port;
-    char *weather_station_url;
-    int weather_station_poll_seconds;
-}arg_struct_t;
-
 /* ----------------------------------------- Globals ------------------------------------------ */
 
 cmdf_option options[] = 
 {
-    {"db",        5,      OPTION_NO_CHAR_KEY, 1, "Data base credentials. Eg: \"User:Password@host:port\""},
-    {"mysql",     6,      OPTION_NO_CHAR_KEY | OPTION_ALIAS},
-    {"schema",    's',    0, 1, "Mysql database schema"},
-    {"port",      'p',    0, 1, "server port. Eg. \"5505\""},
-    {"station",   'u',    0, 1, "wheater station URL"},
-    {"poll_time", 't',    OPTION_OPTIONAL, 1, "time to poll the weather station, in seconds"},
+    {"config", 'c', 0, 1, "Configuration file. json."},
+    {"log",    'l', OPTION_OPTIONAL, 1, "Sets default log level."},
+    {"debug",  'd', OPTION_OPTIONAL, 0, "Enables debug log output."},
     {0}
 };
-
-arg_struct_t arg_struct;
 
 /* ----------------------------------------- Prototypes --------------------------------------- */
 
@@ -89,14 +64,12 @@ size_t tm_to_sec(struct tm time_struct);
 
 int main(int argc, char **argv){
 
-    arg_struct.weather_station_poll_seconds = (15*60);                              // 15 minutes
-
     set_cmd_colors();
     log_out_set(stdout);
 
-    char *soy = get_win_resource_binary_data("soy");
-    log_colored(COLOR_MAGENTA_LOG, "\n\n\n%s\n\n\n", soy);
-    free(soy);
+    char *sprite = get_win_resource_binary_data("title");
+    log_colored(COLOR_RED_LOG, "\n\n\n%s\n\n\n", sprite);
+    free(sprite);
 
     // ------------------------- cmd_friend --------------------
 
@@ -104,7 +77,7 @@ int main(int argc, char **argv){
     set_cmdf_default_info_version("v1.0 - 22/02/2021");
     set_cmdf_default_info_contact_info("Repo: https://github.com/Joao-Peterson/weather_station_web_service - Email: joco_zx@hotmail.com");
 
-    cdmf_parse_options(options, parse_options, argc, argv, PARSER_FLAG_USE_PREDEFINED_OPTIONS | PARSER_FLAG_PRINT_ERRORS_STDOUT | PARSER_FLAG_DONT_IGNORE_NON_REGISTERED_OPTIONS, (void *)&arg_struct);
+    cdmf_parse_options(options, parse_options, argc, argv, PARSER_FLAG_USE_PREDEFINED_OPTIONS | PARSER_FLAG_PRINT_ERRORS_STDOUT | PARSER_FLAG_DONT_IGNORE_NON_REGISTERED_OPTIONS, (void *)&configuration);
 
     // ------------------------- Mysql -------------------------
 
@@ -112,7 +85,22 @@ int main(int argc, char **argv){
     
     db_weather_station = mysql_init(NULL);
 
-    if( mysql_real_connect(db_weather_station, arg_struct.mysql_host, arg_struct.mysql_user, arg_struct.mysql_password, arg_struct.mysql_schema, arg_struct.mysql_port, NULL, 0) ){
+    doc *user = doc_get(configuration, "mysql.user");
+    doc *password = doc_get(configuration, "mysql.password");
+    doc *host = doc_get(configuration, "mysql.host");
+    doc *port = doc_get(configuration, "mysql.port");
+    doc *schema = doc_get(configuration, "mysql.schema");
+
+    if(user->type != dt_string || password->type != dt_string || host->type != dt_string || port->type != dt_int32 || schema->type != dt_string){
+        log_error("[MySQL] mysql data is wrong on specified configuration json file.\n");
+        exit(-1);
+    }
+    else if(user == NULL || password == NULL || host == NULL || port == NULL || schema == NULL){
+        log_error("[MySQL] mysql data is missing on specified configuration json file.\n");
+        exit(-1);
+    }
+
+    if( mysql_real_connect(db_weather_station, doc_get_string(host), doc_get_string(user), doc_get_string(password), doc_get_string(schema), (unsigned int)doc_get_value(port, int32_t), NULL, 0) ){
         log_info("[MySQL] Connected to DB.\n");
     }
     else{
@@ -131,9 +119,19 @@ int main(int argc, char **argv){
     mystruct->magic_num = MY_CUSTOM_STRUCT_MAGIC_NUM;
     mystruct->db = db_weather_station;
     
+    doc *server_port = doc_get(configuration, "server.port");
+    if(server_port == NULL){
+        log_error("[Server] server port is missing on the configuration json file.\n");
+        exit(-1);
+    }
+    else if(server_port->type != dt_int32){
+        log_error("[Server] server port is wrong on the configuration json file.\n");
+        exit(-1);
+    }
+
     server_http = MHD_start_daemon(
         MHD_USE_THREAD_PER_CONNECTION,
-        arg_struct.port,
+        (int)doc_get_value(server_port, int32_t),
         on_client_connect,
         NULL,
         on_response,
@@ -158,7 +156,29 @@ int main(int argc, char **argv){
     time_t raw_time;
     raw_time = time(NULL);
     struct tm *cur_date = localtime(&raw_time);
-    int time_index = tm_to_sec(*cur_date) / arg_struct.weather_station_poll_seconds;
+    
+    doc *poll = doc_get(configuration, "station.polling_time");
+    if(poll == NULL){
+        log_error("[Station] station polling time is missing on the configuration json file.\n");
+        exit(-1);
+    }
+    else if(poll->type != dt_int32){
+        log_error("[station] station polling time is wrong on the configuration json file.\n");
+        exit(-1);
+    }
+    doc *url = doc_get(configuration, "station.url");
+    if(url == NULL){
+        log_error("[Station] station url is missing on the configuration json file.\n");
+        exit(-1);
+    }
+    else if(url->type != dt_string){
+        log_error("[station] station url is wrong on the configuration json file.\n");
+        exit(-1);
+    }
+
+    int time_index = tm_to_sec(*cur_date) / doc_get_value(poll, int32_t);
+
+    log_debug("\n");
 
     CURL *curl;
     CURLcode curlcode;
@@ -175,7 +195,8 @@ int main(int argc, char **argv){
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&json_stream);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_memory_callback);
 
-        curl_easy_setopt(curl, CURLOPT_URL, arg_struct.weather_station_url);
+        curl_easy_setopt(curl, CURLOPT_URL, doc_get_string(url));
+        log_debug("\n");
 
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
@@ -187,11 +208,13 @@ int main(int argc, char **argv){
 
         while(1){
 
-            if(tm_to_sec(*cur_date) >= (time_index + 1)*arg_struct.weather_station_poll_seconds){
+            if(tm_to_sec(*cur_date) >= (time_index + 1)*doc_get_value(poll, int32_t)){
 
+                log_debug("\n");
                 log_client("\n\n*[Client] --------------------------\n");
 
-                log_client("[Weather station GET]: \n- Time: %s- URL: %s\n", asctime(cur_date), arg_struct.weather_station_url);
+                log_client("[Weather station GET]: \n- Time: %s- URL: %s\n", asctime(cur_date), doc_get_string(url));
+                log_debug("\n");
                 curlcode = curl_easy_perform(curl);
 
                 long http_resp_code;
@@ -220,13 +243,14 @@ int main(int argc, char **argv){
                 
                 log_client("-----------------------------------\n\n");
 
-                if(time_index*arg_struct.weather_station_poll_seconds >= DAY_SEC){
+                if(time_index*doc_get_value(poll, int32_t) >= DAY_SEC){
                     time_index = -1;
                 }
                 else{
                     time_index++;
                 }
 
+                log_debug("\n");
             }
 
             time(&raw_time);
@@ -238,9 +262,7 @@ int main(int argc, char **argv){
 
     curl_global_cleanup();
 
-    free(arg_struct.mysql_credentials);
-    free(arg_struct.mysql_schema);
-    free(arg_struct.weather_station_url);
+    doc_delete(configuration, ".");
     free(mystruct);
     MHD_stop_daemon(server_http);
     mysql_close(db_weather_station);
@@ -266,61 +288,29 @@ size_t curl_write_memory_callback(void *data, size_t element_size, size_t elemen
     return data_size;
 }
 
-int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct){
+int parse_options(char key, char *arg, int arg_pos, void *user_data){
     
-    arg_struct_t *myvariables = (arg_struct_t*)extern_user_variables_struct; // retrieving custom struct by casting
-    char *cursor;
-    size_t arg_len;
+    doc **configuration = (doc**)user_data; // retrieving custom struct by casting
+    FILE *configuration_file;
+    char *configuration_stream;
 
-    switch (key)
-    {
-        case 5: 
-        case 6: 
-            arg_len = strlen(arg) + 1;
-            myvariables->mysql_credentials = (char *)calloc(arg_len, sizeof(*myvariables->mysql_credentials));
-            strncpy(myvariables->mysql_credentials, arg, arg_len);
+    switch (key){
 
-            myvariables->mysql_user = myvariables->mysql_credentials;
+        case 'c':
+            configuration_file = fopen(arg, "r+b");
+            configuration_stream = fload_into_mem(configuration_file, NULL);
+            *configuration = doc_parse_json(configuration_stream);
 
-            cursor = strpbrk(myvariables->mysql_credentials, ":@");
-            *cursor = '\0';
-            cursor++;
-
-            myvariables->mysql_password = cursor;
-
-            cursor = strpbrk(cursor, ":@");
-            *cursor = '\0';
-            cursor++;
-
-            myvariables->mysql_host = cursor;
-
-            cursor = strpbrk(cursor, ":@");
-            *cursor = '\0';
-            cursor++;
-
-            myvariables->mysql_port_str = cursor;
-
-            myvariables->mysql_port = atoi(myvariables->mysql_port_str);
+            free(configuration_stream);
+            fclose(configuration_file);
         break;
 
-        case 'p':
-            myvariables->port = atoi(arg);
+        case 'l':
+            set_log_level(atoi(arg));
         break;
 
-        case 't':
-            myvariables->weather_station_poll_seconds = atoi(arg);
-        break;
-
-        case 's':
-            arg_len = strlen(arg) + 1;
-            myvariables->mysql_schema = (char *)calloc(arg_len, sizeof(*myvariables->mysql_schema));
-            strncpy(myvariables->mysql_schema, arg, arg_len);
-        break;
-
-        case 'u':
-            arg_len = strlen(arg) + 1;
-            myvariables->weather_station_url = (char *)calloc(arg_len, sizeof(*myvariables->weather_station_url));
-            strncpy(myvariables->weather_station_url, arg, arg_len);
+        case 'd':
+            set_debug_level(1);
         break;
 
         default: 

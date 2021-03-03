@@ -13,7 +13,8 @@
 
 // ------------------------------------------------------------------------------------------
 
-soy RCDATA "../inc/soy.h"
+soy     RCDATA "../sprites/soy.txt"
+title   RCDATA "../sprites/title.txt"
 
 // select_query            RCDATA "../sql/select_query.sql"
 // select_query_interval   RCDATA "../sql/select_query_interval.sql"

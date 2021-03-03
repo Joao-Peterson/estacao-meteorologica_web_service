@@ -10,6 +10,7 @@
 #include "log.h"
 #include "dew_point.h"
 #include "heat_index.h"
+#include "configuration.h"
 
 /**
  * @brief makes an type association between the 'mysql' types and 'doc' types
@@ -90,6 +91,16 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     doc *humidity_ptr       = doc_get(data, "humidity");
     doc *incidency_sun_ptr  = doc_get(data, "incidency_sun");
     doc *precipitation_ptr  = doc_get(data, "precipitation");
+    doc *rain_ratio_ptr = doc_get(configuration, "server.correction.rain_gauge.ratio");
+    doc *solar_a_ptr = doc_get(configuration, "server.correction.solar_incidency.a");
+    doc *solar_b_ptr = doc_get(configuration, "server.correction.solar_incidency.b");
+    doc *temp_a_ptr = doc_get(configuration, "server.correction.temperature.a");
+    doc *temp_b_ptr = doc_get(configuration, "server.correction.temperature.b");
+
+    if(rain_ratio_ptr == NULL || solar_a_ptr == NULL || solar_b_ptr == NULL || temp_a_ptr == NULL || temp_a_ptr == NULL){
+        log_error("[Server] some correction data for values is missing on configuration json file.\n");
+        exit(-1);
+    }
 
     double temp                 = 0.0;
     double humidity             = 0.0;
@@ -97,6 +108,11 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     double precipitation        = 0.0;
     double heat_index_value     = 0.0;
     double dew_point_value      = 0.0;
+    double rain_ratio           = 1.0;
+    double solar_a              = 1.0;
+    double solar_b              = 0.0;
+    double temp_a               = 1.0;
+    double temp_b               = 0.0;
 
     if(temp_ptr->type == dt_double)
         temp = doc_get_value(temp_ptr, double);                 
@@ -118,10 +134,39 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     else if(precipitation_ptr->type == dt_int32)
         precipitation = (double)doc_get_value(precipitation_ptr, int32_t);                          
 
+    if(rain_ratio_ptr->type == dt_double)
+        rain_ratio = doc_get_value(rain_ratio_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        rain_ratio = (double)doc_get_value(rain_ratio_ptr, int32_t);                          
+
+    if(solar_a_ptr->type == dt_double)
+        solar_a = doc_get_value(solar_a_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        solar_a = (double)doc_get_value(solar_a_ptr, int32_t);                          
+
+    if(solar_b_ptr->type == dt_double)
+        solar_b = doc_get_value(solar_b_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        solar_b = (double)doc_get_value(solar_b_ptr, int32_t);                          
+
+    if(temp_a_ptr->type == dt_double)
+        temp_a = doc_get_value(temp_a_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        temp_a = (double)doc_get_value(temp_a_ptr, int32_t);                          
+
+    if(temp_b_ptr->type == dt_double)
+        temp_b = doc_get_value(temp_b_ptr, double);                          
+    else if(precipitation_ptr->type == dt_int32)
+        temp_b = (double)doc_get_value(temp_b_ptr, int32_t);                          
+
     if(temp != 0.0 && humidity != 0.0){
         heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
         dew_point_value  = dew_point (temp, humidity/100.0);     
     }
+
+    temp = temp*temp_a + temp_b;
+    incidency_sun = incidency_sun*solar_a + solar_b;
+    precipitation *= rain_ratio;
 
     snprintf(query_buffer, 1000, insert_query, 
         temp,
@@ -161,16 +206,16 @@ doc *doc_sql_select_query(MYSQL *mysql_db, char *sql_query, char *name_array_of_
     mysql_ret_code = mysql_query(mysql_db, sql_query);
 
     if(mysql_ret_code){
-        printf("[%s.%u] Query error: %s.\n", __FILE__, __LINE__, mysql_error(mysql_db));
+        log_error("Query error: %s.\n", mysql_error(mysql_db));
         return NULL;
     }
     else
-        printf("[%s.%u] Select Query complete.\n", __FILE__, __LINE__);
+        log_info("Select Query complete.\n");
 
     query_response = mysql_store_result(mysql_db);
 
     if(!query_response){
-        printf("[%s.%u] Query error: %s.\n", __FILE__, __LINE__, mysql_error(mysql_db));
+        log_error("Query error: %s.\n", mysql_error(mysql_db));
         return NULL;
     }
 
