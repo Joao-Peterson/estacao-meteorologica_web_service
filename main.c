@@ -177,8 +177,9 @@ int main(int argc, char **argv){
     }
 
     int time_index = tm_to_sec(*cur_date) / doc_get_value(poll, int32_t);
+    time_index++;
 
-    log_debug("\n");
+    log_debug("%i\n", time_index);
 
     CURL *curl;
     CURLcode curlcode;
@@ -196,7 +197,6 @@ int main(int argc, char **argv){
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_memory_callback);
 
         curl_easy_setopt(curl, CURLOPT_URL, doc_get_string(url));
-        log_debug("\n");
 
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
@@ -208,13 +208,26 @@ int main(int argc, char **argv){
 
         while(1){
 
-            if(tm_to_sec(*cur_date) >= (time_index + 1)*doc_get_value(poll, int32_t)){
+            size_t sec = tm_to_sec(*cur_date);
+            if(time_index >= (DAY_SEC / doc_get_value(poll, int32_t)) && (sec < doc_get_value(poll, int32_t))){
+                log_debug("if - sec: %u, index: %i\n", sec, time_index);
+                sec += DAY_SEC;  
+            } 
 
-                log_debug("\n");
+            if(sec >= (time_index)*doc_get_value(poll, int32_t)){
+
+                log_debug("sec: %u, index: %i\n", sec, time_index);
+                time_index++;
+
+                if(time_index >= (DAY_SEC / doc_get_value(poll, int32_t)) + 1){
+                    log_debug("%i\n", time_index);
+                    time_index = 1;
+                    log_debug("%i\n", time_index);
+                }
+
                 log_client("\n\n*[Client] --------------------------\n");
 
                 log_client("[Weather station GET]: \n- Time: %s- URL: %s\n", asctime(cur_date), doc_get_string(url));
-                log_debug("\n");
                 curlcode = curl_easy_perform(curl);
 
                 long http_resp_code;
@@ -242,15 +255,6 @@ int main(int argc, char **argv){
                 }
                 
                 log_client("-----------------------------------\n\n");
-
-                if(time_index*doc_get_value(poll, int32_t) >= DAY_SEC){
-                    time_index = -1;
-                }
-                else{
-                    time_index++;
-                }
-
-                log_debug("\n");
             }
 
             time(&raw_time);
