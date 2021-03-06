@@ -71,18 +71,23 @@ static enum MHD_Result on_response(
         return MHD_YES;
     }
 
-    log_server("\n\n*[Server] --------------------------\n");
+    log_server("\n*[Server] --------------------------\n");
 
     // MHD_get_connection_values(connection, MHD_HEADER_KIND, print_keys, NULL);
 
     http_options_t *options = *ptr;                                                 // retrieve options from URI
     http_options_t *cursor  = *ptr;
     
-    // printf("Options: \n");
-    // while(cursor != NULL){
-    //     printf("    -%s: %s\n", cursor->name, cursor->value);
-    //     cursor = cursor->next;
-    // }
+    if(cursor == NULL){
+        log_server("[Options]: none.\n");
+    }
+    else{
+        log_server("[Options]: \n");
+        while(cursor != NULL){
+            log_server("\t-%s: %s\n", cursor->name, cursor->value);
+            cursor = cursor->next;
+        }
+    }
     
     time_t req_time_raw = time(NULL);
     struct tm *req_time = localtime(&req_time_raw);

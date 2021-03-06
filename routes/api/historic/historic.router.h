@@ -57,7 +57,8 @@ struct MHD_Response *router_historic_handler(http_method_t method, http_options_
 router_uri_t *router_historic;
 
 void router_historic_init(void){
-    router_historic = router_uri_new("/historic", 20, router_historic_handler);
+    if(router_historic == NULL)
+        router_historic = router_uri_new("/historic", 20, router_historic_handler);
 }
 
 #endif

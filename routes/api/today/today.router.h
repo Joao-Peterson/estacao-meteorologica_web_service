@@ -47,7 +47,8 @@ struct MHD_Response *router_today_handler(http_method_t method, http_options_t *
 router_uri_t *router_today;
 
 void router_today_init(void){
-    router_today = router_uri_new("/today", 20, router_today_handler);
+    if(router_today == NULL)
+        router_today = router_uri_new("/today", 20, router_today_handler);
 }
 
 #endif

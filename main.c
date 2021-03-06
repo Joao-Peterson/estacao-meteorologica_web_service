@@ -14,6 +14,7 @@
 #include "win_res.h"
 #include "microhttpd.h"
 #include "http_server_utils.h"
+#include "http_client_utils.h"
 #include "router_uri.h"
 #include "routes/root.router.h"
 #include "log.h"
@@ -31,16 +32,10 @@
  * https://www.gnu.org/software/libmicrohttpd/tutorial.html
  */
 
-/* ----------------------------------------- Definitions -------------------------------------- */
-
-#define DAY_SEC (24*60*60)
-
-/* ----------------------------------------- Types -------------------------------------------- */
-
-typedef struct{
-    char *stream;
-    size_t len;
-}json_stream_t;
+/**
+ * TODO: 
+ * Retry the requests to the weather station if there is a com error or invalid data
+ */
 
 /* ----------------------------------------- Globals ------------------------------------------ */
 
@@ -57,8 +52,6 @@ cmdf_option options[] =
 size_t curl_write_memory_callback(void *data, size_t element_size, size_t elements, void *user_data);
 
 int parse_options(char key, char *arg, int arg_pos, void *extern_user_variables_struct);
-
-size_t tm_to_sec(struct tm time_struct);
 
 /* ----------------------------------------- Main --------------------------------------------- */
 
@@ -100,7 +93,16 @@ int main(int argc, char **argv){
         exit(-1);
     }
 
-    if( mysql_real_connect(db_weather_station, doc_get_string(host), doc_get_string(user), doc_get_string(password), doc_get_string(schema), (unsigned int)doc_get_value(port, int32_t), NULL, 0) ){
+    if( mysql_real_connect(
+        db_weather_station, 
+        doc_get_string(host), 
+        doc_get_string(user), 
+        doc_get_string(password), 
+        doc_get_string(schema), 
+        (unsigned int)doc_get_value(port, int32_t), 
+        NULL, 
+        0
+    )){
         log_info("[MySQL] Connected to DB.\n");
     }
     else{
@@ -151,21 +153,7 @@ int main(int argc, char **argv){
     }
 
     // ------------------------------ CURL ---------------------
-
-    // times
-    time_t raw_time;
-    raw_time = time(NULL);
-    struct tm *cur_date = localtime(&raw_time);
     
-    doc *poll = doc_get(configuration, "station.polling_time");
-    if(poll == NULL){
-        log_error("[Station] station polling time is missing on the configuration json file.\n");
-        exit(-1);
-    }
-    else if(poll->type != dt_int32){
-        log_error("[station] station polling time is wrong on the configuration json file.\n");
-        exit(-1);
-    }
     doc *url = doc_get(configuration, "station.url");
     if(url == NULL){
         log_error("[Station] station url is missing on the configuration json file.\n");
@@ -175,87 +163,63 @@ int main(int argc, char **argv){
         log_error("[station] station url is wrong on the configuration json file.\n");
         exit(-1);
     }
+    doc *poll = doc_get(configuration, "station.polling_time");
+    if(poll == NULL){
+        log_error("[Station] station polling time is missing on the configuration json file.\n");
+        exit(-1);
+    }
+    else if(poll->type != dt_int32){
+        log_error("[station] station polling time is wrong on the configuration json file.\n");
+        exit(-1);
+    }
+    doc *retries = doc_get(configuration, "station.retries");
+    if(retries == NULL){
+        log_error("[Station] station retries is missing on the configuration json file.\n");
+        exit(-1);
+    }
+    else if(retries->type != dt_int32){
+        log_error("[station] station retries is wrong on the configuration json file.\n");
+        exit(-1);
+    }
+
+
+
+    // times
+    time_t raw_time;
+    raw_time = time(NULL);
+    struct tm *cur_date = localtime(&raw_time);
 
     int time_index = tm_to_sec(*cur_date) / doc_get_value(poll, int32_t);
     time_index++;
 
     log_debug("%i\n", time_index);
 
-    CURL *curl;
-    CURLcode curlcode;
     json_stream_t json_stream = { .len = 1, .stream = calloc(1,1)};
 
-    doc *mydoc;
-
+    CURL *curl;
     curl_global_init(CURL_GLOBAL_ALL);
-
     curl = curl_easy_init();
 
     if(curl){
 
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&json_stream);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_memory_callback);
-
         curl_easy_setopt(curl, CURLOPT_URL, doc_get_string(url));
-
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-bot/1.0");
-        // curl_easy_setopt(curl, CURLOPT_USERNAME, "XXX");
-        // curl_easy_setopt(curl, CURLOPT_PASSWORD, "XXX");
-        // curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, char *error_msg_buffer);
 
         while(1){
-
-            size_t sec = tm_to_sec(*cur_date);
-            if(time_index >= (DAY_SEC / doc_get_value(poll, int32_t)) && (sec < doc_get_value(poll, int32_t))){
-                log_debug("if - sec: %u, index: %i\n", sec, time_index);
-                sec += DAY_SEC;  
-            } 
-
-            if(sec >= (time_index)*doc_get_value(poll, int32_t)){
-
-                log_debug("sec: %u, index: %i\n", sec, time_index);
-                time_index++;
-
-                if(time_index >= (DAY_SEC / doc_get_value(poll, int32_t)) + 1){
-                    log_debug("%i\n", time_index);
-                    time_index = 1;
-                    log_debug("%i\n", time_index);
-                }
-
-                log_client("\n\n*[Client] --------------------------\n");
-
-                log_client("[Weather station GET]: \n- Time: %s- URL: %s\n", asctime(cur_date), doc_get_string(url));
-                curlcode = curl_easy_perform(curl);
-
-                long http_resp_code;
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp_code);
-
-                if(curlcode != CURLE_OK){
-                    log_error("[Curl error]: %s\n", curl_easy_strerror(curlcode));
-                }
-                else if(http_resp_code > 400){
-                    log_error("[HTTP error code]: %i\n", http_resp_code);
-                }
-                else{
-                    log_client("[Station Data]:\n%s\n", json_stream.stream);
-
-                    doc *doc_weather_station = doc_parse_json(json_stream.stream);
-                    
-                    /* Insert query */
-                    doc_sql_insert_query(db_weather_station, doc_weather_station);
-
-                    free(json_stream.stream);
-                    json_stream.stream = NULL;
-                    json_stream.len = 1;
-                    doc_delete(doc_weather_station, ".");
-
-                }
-                
-                log_client("-----------------------------------\n\n");
-            }
+            curl_perform_schedule(
+                curl,
+                cur_date, 
+                doc_get_value(poll, int32_t), 
+                doc_get_value(retries, int32_t), 
+                &time_index, 
+                doc_get_string(url),
+                &json_stream,
+                db_weather_station
+            );
 
             time(&raw_time);
             cur_date = localtime(&raw_time);
@@ -322,8 +286,4 @@ int parse_options(char key, char *arg, int arg_pos, void *user_data){
     }
 
     return 0;
-}
-
-size_t tm_to_sec(struct tm time_struct){
-    return time_struct.tm_hour*60*60 + time_struct.tm_min*60 + time_struct.tm_sec;
 }

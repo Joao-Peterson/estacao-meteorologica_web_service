@@ -46,7 +46,9 @@ struct MHD_Response *router_api_handler(http_method_t method, http_options_t *op
 router_uri_t *router_api;
 
 void router_api_init(void){
-    router_api = router_uri_new("/api", 20, router_api_handler);
+    if(router_api == NULL)
+        router_api = router_uri_new("/api", 20, router_api_handler);
+
     router_uri_use(router_api, &router_today, router_today_init);
     router_uri_use(router_api, &router_historic, router_historic_init);
 }

@@ -22,7 +22,8 @@ struct MHD_Response *router_default_handler(http_method_t method, http_options_t
 router_uri_t *router_default;
 
 void router_default_init(void){
-    router_default = router_uri_new("/", 20, router_default_handler);
+    if(router_default == NULL)
+        router_default = router_uri_new("/", 20, router_default_handler);
 }
 
 #endif

@@ -85,25 +85,25 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
 
     FILE *insert_query_file = fopen("./sql/insert_query_c.sql", "r+b");
     char *insert_query = fload_into_mem(insert_query_file, NULL);
-    char *query_buffer = calloc(1000, sizeof(*query_buffer));
+    char *query_buffer = (char *)calloc(1000, sizeof(*query_buffer));
 
     doc *temp_ptr           = doc_get(data, "temp");
     doc *humidity_ptr       = doc_get(data, "humidity");
     doc *incidency_sun_ptr  = doc_get(data, "incidency_sun");
     doc *precipitation_ptr  = doc_get(data, "precipitation");
-    doc *rain_ratio_ptr = doc_get(configuration, "server.correction.rain_gauge.ratio");
-    doc *solar_a_ptr = doc_get(configuration, "server.correction.solar_incidency.a");
-    doc *solar_b_ptr = doc_get(configuration, "server.correction.solar_incidency.b");
-    doc *temp_a_ptr = doc_get(configuration, "server.correction.temperature.a");
-    doc *temp_b_ptr = doc_get(configuration, "server.correction.temperature.b");
+    doc *rain_ratio_ptr     = doc_get(configuration, "server.correction.rain_gauge.ratio");
+    doc *solar_a_ptr        = doc_get(configuration, "server.correction.solar_incidency.a");
+    doc *solar_b_ptr        = doc_get(configuration, "server.correction.solar_incidency.b");
+    doc *temp_a_ptr         = doc_get(configuration, "server.correction.temperature.a");
+    doc *temp_b_ptr         = doc_get(configuration, "server.correction.temperature.b");
 
     if(rain_ratio_ptr == NULL || solar_a_ptr == NULL || solar_b_ptr == NULL || temp_a_ptr == NULL || temp_a_ptr == NULL){
         log_error("[Server] some correction data for values is missing on configuration json file.\n");
         exit(-1);
     }
 
-    double temp                 = 0.0;
-    double humidity             = 0.0;
+    double temp                 = -404.0;
+    double humidity             = -404.0;
     double incidency_sun        = 0.0;
     double precipitation        = 0.0;
     double heat_index_value     = 0.0;
@@ -159,14 +159,14 @@ void doc_sql_insert_query(MYSQL *mysql_db, doc *data){
     else if(precipitation_ptr->type == dt_int32)
         temp_b = (double)doc_get_value(temp_b_ptr, int32_t);                          
 
-    if(temp != 0.0 && humidity != 0.0){
-        heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
-        dew_point_value  = dew_point (temp, humidity/100.0);     
-    }
-
     temp = temp*temp_a + temp_b;
     incidency_sun = incidency_sun*solar_a + solar_b;
     precipitation *= rain_ratio;
+
+    if(temp != -404.0 && humidity != -404.0){
+        heat_index_value = heat_index(1.8 * temp + 32.0, humidity);     
+        dew_point_value  = dew_point (temp, humidity/100.0);     
+    }
 
     snprintf(query_buffer, 1000, insert_query, 
         temp,

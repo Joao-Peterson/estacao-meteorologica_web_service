@@ -44,7 +44,9 @@ struct MHD_Response *router_root_handler(http_method_t method, http_options_t *o
 router_uri_t *router_root;
 
 void router_root_init(void){
-    router_root = router_uri_new("/", 20, router_root_handler);
+    if(router_root == NULL)
+        router_root = router_uri_new("/", 20, router_root_handler);
+        
     router_uri_use(router_root, &router_api, router_api_init);
 }
 
