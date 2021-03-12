@@ -1,0 +1,33 @@
+{
+    "mysql": {
+        "user": "Peterson",
+        "password": "root",
+        "host": "localhost",
+        "port": 3306,
+        "schema": "global"
+    },
+
+    "station": {
+        "url": "http://211a009c4109.ngrok.io/api/weather_station",
+        "polling_time": 600,
+        "retries": 3 
+    },
+
+    "server": {
+        "port": 5505,
+        "correction": {
+            "rain_gauge": {
+                "ratio": 0.76
+            },
+            "solar_incidency": {
+                "a": 0.4347826086956522,
+                "b": 0
+            },
+            "temperature": {
+                "a": 1,
+                "b": 0
+            }
+        }
+    }
+}
+

@@ -2,7 +2,6 @@
 .vscode/
 
 *.o
-*.json
 *.res
 *.http
 
