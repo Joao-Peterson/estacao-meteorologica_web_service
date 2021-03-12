@@ -5,6 +5,5 @@
 *.res
 *.http
 
-/time.c
 /mysql_start_cmd.txt
 /ngrok_error.html
